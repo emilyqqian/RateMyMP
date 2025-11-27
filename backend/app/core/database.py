@@ -13,6 +13,15 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def init_db() -> None:
+    """Ensure the database schema exists when the app boots."""
+
+    # Import inside the function so Alembic continues to own migrations.
+    from app import models  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+
+
 def get_db():
     """FastAPI dependency that yields a transactional DB session."""
 

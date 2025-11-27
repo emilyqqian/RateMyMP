@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -11,8 +11,17 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[Motion])
-def list_motions(db: Session = Depends(get_db)):
-    return MotionService(db).list_motions()
+def list_motions(
+    category: Optional[str] = Query(None, description="Filter motions by category tag"),
+    limit: Optional[int] = Query(
+        None,
+        ge=1,
+        le=100,
+        description="Optional maximum number of motions to return",
+    ),
+    db: Session = Depends(get_db),
+):
+    return MotionService(db).list_motions(category=category, limit=limit)
 
 
 @router.get("/{motion_id}", response_model=Motion)

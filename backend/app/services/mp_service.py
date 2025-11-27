@@ -1,7 +1,7 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import MP, Motion, SpendingEntry, Speech, TransparencyEntry, VoteRecord
@@ -23,8 +23,12 @@ class MPService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_mps(self) -> List[MPSchema]:
-        return self.db.query(MP).order_by(MP.name.asc()).all()
+    def list_mps(self, search: Optional[str] = None) -> List[MPSchema]:
+        query = self.db.query(MP).order_by(MP.name.asc())
+        if search:
+            like_pattern = f"%{search.strip()}%"
+            query = query.filter(or_(MP.name.ilike(like_pattern), MP.riding.ilike(like_pattern)))
+        return query.all()
 
     def get_mp(self, mp_id: int) -> MPSchema:
         mp = self.db.query(MP).filter(MP.id == mp_id).first()

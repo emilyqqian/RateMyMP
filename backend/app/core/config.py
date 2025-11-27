@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     API_V1_STR: str = "/api"
 
     DATABASE_URL: str = Field(
-        default="postgresql+psycopg2://ratemymp:ratemymp@postgres:5432/ratemymp",
+        default="postgresql+psycopg2://ratemymp:ratemymp@127.0.0.1:55432/ratemymp",
         description="SQLAlchemy connection string",
     )
     DB_POOL_SIZE: int = 5
@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     CORS_ALLOWED_ORIGINS: List[str] = Field(default_factory=lambda: ["*"])
 
     LOG_LEVEL: str = "INFO"
+    LOAD_DEMO_DATA: bool = Field(
+        default=True,
+        description="Seed a small set of demo records when the database is empty.",
+    )
 
     class Config:
         env_file = ".env"

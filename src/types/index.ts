@@ -4,7 +4,7 @@ export type PartyName = 'Liberal' | 'Conservative' | 'NDP' | 'Bloc Québécois' 
 
 export type VoteStatus = 'Passed' | 'Failed' | 'In Progress';
 
-export type MotionCategory = 
+export type MotionCategory =
   | 'economics'
   | 'trade'
   | 'healthcare'
@@ -74,11 +74,11 @@ export interface Vote {
 
 export interface Speech {
   id: string;
-  date: string;
-  topic: string;
-  excerpt: string;
-  fullText: string;
-  wordCount: number;
+  mpId: string;
+  motionId?: string;
+  title: string;
+  content: string;
+  date?: string;
 }
 
 export interface SpendingItem {

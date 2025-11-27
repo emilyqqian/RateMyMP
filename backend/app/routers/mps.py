@@ -1,6 +1,8 @@
 from typing import List
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -18,8 +20,15 @@ router = APIRouter()
 
 
 @router.get("", response_model=List[MP])
-def list_mps(db: Session = Depends(get_db)):
-    return MPService(db).list_mps()
+def list_mps(
+    search: Optional[str] = Query(
+        None,
+        min_length=1,
+        description="Optional search string that matches MP name or riding",
+    ),
+    db: Session = Depends(get_db),
+):
+    return MPService(db).list_mps(search=search)
 
 
 @router.get("/{mp_id}", response_model=MP)

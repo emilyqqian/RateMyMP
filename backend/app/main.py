@@ -2,10 +2,15 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.database import init_db
 from app.routers import api_router
+from app.services.demo_data import seed_demo_data
 from app.utils.logging import configure_logging
 
 configure_logging()
+init_db()
+if settings.LOAD_DEMO_DATA:
+    seed_demo_data()
 
 app = FastAPI(title=settings.APP_NAME, version=settings.VERSION)
 
