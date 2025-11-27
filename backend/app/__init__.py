@@ -1,0 +1,1 @@
+"""RateMyMP backend application package."""
