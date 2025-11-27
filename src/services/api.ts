@@ -1,7 +1,7 @@
 // API service layer - connected to FastAPI backend
 import type { Motion, MP, Vote, Speech, SpendingItem, TransparencyItem, PartyName } from '@/types';
 
-const API_BASE = 'http://localhost:8000/api/v1/motions';
+const API_BASE = 'http://localhost:8000/api/motions';
 
 // Mock data for development
 export const mockMotions: Motion[] = [
