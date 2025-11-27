@@ -1,73 +1,101 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from datetime import date, datetime
+from typing import Any, Dict, List, Optional
 
 from app.models import MP
-from app.services.data_ingestion.common import fetch_html, upsert_entities
+from app.services.data_ingestion.common import (
+    OPENPARLIAMENT_BASE,
+    extract_parl_mp_id,
+    fetch_openparliament,
+    paginate_openparliament,
+    upsert_entities,
+)
 
 logger = logging.getLogger(__name__)
 
-OUR_COMMONS_CONSTITUENCIES = "https://www.ourcommons.ca/members/en/constituencies"
-OPEN_PARLIAMENT_POLITICIANS = "https://openparliament.ca/politicians/"
+MAX_POLITICIANS = 400
 
 
-def _placeholder_mp_payload() -> List[Dict[str, Any]]:
-    return [
-        {
-            "id": 1,
-            "name": "Sample MP",
-            "riding": "Demo Riding",
-            "party": "Independent",
-            "photo_url": None,
-            "attendance_rate": 0.95,
-            "party_line_voting_rate": 0.7,
-            "years_in_office": 2,
-        }
-    ]
+def _absolute_photo_url(path: Optional[str]) -> Optional[str]:
+    if not path:
+        return None
+    return f"{OPENPARLIAMENT_BASE.rstrip('/')}{path}"
 
 
-def fetch_mp_sources() -> List[str]:
-    return [OUR_COMMONS_CONSTITUENCIES, OPEN_PARLIAMENT_POLITICIANS]
+def _extract_mp_id(detail: Dict[str, Any]) -> int:
+    extracted = extract_parl_mp_id(detail)
+    if extracted:
+        return extracted
+    # Fallback: hash the unique politician slug for deterministic ID
+    fallback = abs(hash(detail.get("url"))) % 10_000_000
+    return fallback or 1
+
+
+def _years_in_office(detail: Dict[str, Any]) -> Optional[int]:
+    memberships = detail.get("memberships") or []
+    start_dates = []
+    for membership in memberships:
+        start = membership.get("start_date")
+        if start:
+            try:
+                start_dates.append(datetime.fromisoformat(start).date())
+            except ValueError:
+                continue
+    if not start_dates:
+        return None
+    earliest = min(start_dates)
+    return max(0, date.today().year - earliest.year)
+
+
+def _current_riding(detail: Dict[str, Any]) -> str:
+    current = detail.get("memberships") or []
+    if current:
+        latest = current[-1]
+        riding = latest.get("riding", {}).get("name", {}).get("en")
+        if riding:
+            return riding
+    riding = detail.get("current_riding", {}).get("name", {}).get("en")
+    return riding or "Unknown Riding"
+
+
+def _current_party(detail: Dict[str, Any]) -> str:
+    party = detail.get("current_party", {}).get("short_name", {}).get("en")
+    if party:
+        return party
+    memberships = detail.get("memberships") or []
+    if memberships:
+        party = memberships[-1].get("party", {}).get("short_name", {}).get("en")
+        if party:
+            return party
+    return "Independent"
 
 
 def scrape_mps() -> List[Dict[str, Any]]:
-    payload: List[Dict[str, Any]] = []
-    for url in fetch_mp_sources():
+    details: List[Dict[str, Any]] = []
+    for summary in paginate_openparliament("/politicians/", page_size=100, max_records=MAX_POLITICIANS):
         try:
-            html = fetch_html(url)
-            payload.append(
-                {
-                    "id": len(payload) + 1,
-                    "name": f"Scraped MP #{len(payload) + 1}",
-                    "riding": "Unknown",
-                    "party": "Unknown",
-                    "photo_url": None,
-                    "attendance_rate": None,
-                    "party_line_voting_rate": None,
-                    "years_in_office": None,
-                    "_source": url,
-                    "_raw": html[:2000],  # keep snippet for debugging
-                }
-            )
-        except Exception as exc:  # pragma: no cover - network dependent
-            logger.warning("Failed to scrape %s: %s", url, exc)
-    if not payload:
-        payload = _placeholder_mp_payload()
-    return payload
+            detail = fetch_openparliament(summary["url"])
+            details.append(detail)
+        except Exception as exc:  # pragma: no cover - network issues
+            logger.warning("Failed to download politician detail %s: %s", summary.get("url"), exc)
+    return details
 
 
-def normalize_mp(record: Dict[str, Any]) -> Dict[str, Any]:
-    return {
-        "id": record.get("id"),
-        "name": record.get("name", "Unknown"),
-        "riding": record.get("riding", "Unknown Riding"),
-        "party": record.get("party", "Unknown Party"),
-        "photo_url": record.get("photo_url"),
-        "attendance_rate": record.get("attendance_rate"),
-        "party_line_voting_rate": record.get("party_line_voting_rate"),
-        "years_in_office": record.get("years_in_office"),
+def normalize_mp(detail: Dict[str, Any]) -> Dict[str, Any]:
+    mp_id = _extract_mp_id(detail)
+    normalized = {
+        "id": mp_id,
+        "name": detail.get("name", "Unknown"),
+        "riding": _current_riding(detail),
+        "party": _current_party(detail),
+        "photo_url": _absolute_photo_url(detail.get("image")),
+        "attendance_rate": None,
+        "party_line_voting_rate": None,
+        "years_in_office": _years_in_office(detail),
     }
+    return normalized
 
 
 def ingest_mps(db_session) -> int:
