@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -14,8 +14,15 @@ class MotionService:
     def __init__(self, db: Session):
         self.db = db
 
-    def list_motions(self) -> List[MotionModel]:
-        return self.db.query(MotionModel).order_by(MotionModel.date.desc().nullslast()).all()
+    def list_motions(self, category: Optional[str] = None, limit: Optional[int] = None) -> List[MotionModel]:
+        query = self.db.query(MotionModel).order_by(MotionModel.date.desc().nullslast())
+        if category:
+            query = query.filter(MotionModel.categories.isnot(None)).filter(
+                MotionModel.categories.contains([category])
+            )
+        if limit:
+            query = query.limit(limit)
+        return query.all()
 
     def get_motion(self, motion_id: int) -> MotionModel:
         motion = self.db.query(MotionModel).filter(MotionModel.id == motion_id).first()

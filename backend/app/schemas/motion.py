@@ -1,5 +1,5 @@
-from datetime import date
-from typing import Dict, List, Optional
+import datetime as dt
+from typing import Any, Dict, List, Optional
 
 from pydantic import Field
 
@@ -12,11 +12,13 @@ class MotionBase(ORMBase):
     description: Optional[str] = None
     introduced_by_mp_id: int
     introduced_by_party: Optional[str] = None
-    vote_results_by_party: Optional[Dict[str, Dict[str, int]]] = None
+    # Allow flexible vote payloads from OpenParliament (e.g. {"vote": "yea"})
+    # as well as normalized tallies ({"yea": 10, "nay": 5, "abstain": 0}).
+    vote_results_by_party: Optional[Dict[str, Dict[str, Any]]] = None
     passed: bool = False
     categories: List[str] = Field(default_factory=list)
     classification: MotionClassification
-    date: Optional[date] = None
+    date: Optional[dt.date] = None
 
 
 class MotionCreate(MotionBase):

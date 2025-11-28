@@ -11,7 +11,14 @@ class VoteRecord(Base):
     id = Column(Integer, primary_key=True, index=True)
     mp_id = Column(Integer, ForeignKey("mps.id"), nullable=False)
     motion_id = Column(Integer, ForeignKey("motions.id"), nullable=False)
-    vote = Column(Enum(VoteChoice), nullable=False)
+    vote = Column(
+        Enum(
+            VoteChoice,
+            name="votechoice",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+    )
 
     mp = relationship("MP", back_populates="votes")
     motion = relationship("Motion", back_populates="votes")
